@@ -9,7 +9,16 @@ from .models import Customer
 from .serializers import CustomerSerializer
 from core.utils.cnpj_is_valid import cnpj_is_valid
 from rest_framework.serializers import ValidationError
+import requests
 
+
+def get_address(city, village, address):
+    result = 'Sem rua' if not address else address
+    result += ' - '
+    result += 'Sem bairro' if not village else village
+    result += ' - '
+    result += 'Sem cidade' if not city else city
+    return result
 
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
@@ -19,12 +28,15 @@ class CustomerViewSet(viewsets.ModelViewSet):
 class CustomerByCNPJViewSet(APIView):
 
     def post(self, request, cnpj):
-        if not cnpj_is_valid(cnpj):
-            raise ValidationError("invalid cnpj")
+        # Como fazer um Promise.race ou Promise.all no python?
+        response = requests.get('https://www.receitaws.com.br/v1/cnpj/{}'.format(cnpj))
+        if not response.status_code == 200:
+            raise EnvironmentError('Um erro ocorreu na integração')
+        response_json = response.json()
 
         data = {
-            'name': 'Sadio Mané',
-            'address': 'Nigéria',
+            'name': response_json['nome'],
+            'address': get_address(city=response_json['municipio'], village=response_json['bairro'], address=response_json['logradouro']),
             'cnpj': cnpj
         }
 
